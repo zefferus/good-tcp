@@ -40,8 +40,6 @@
     "hoek": "^4.0.2"
   },
   "devDependencies": {
-    "hapi": "^14.0.0",
-    "good": "^7.0.1",
     "babel-eslint": "^6.1.2",
     "eslint": "^3.1.1",
     "tap": "^6.2.0",
