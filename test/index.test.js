@@ -125,6 +125,8 @@ describe('GoodTcp.', (tap) => {
 
         stream.push({ id: i });
       }
+
+      stream.push(null);
     });
   });
 
@@ -171,6 +173,8 @@ describe('GoodTcp.', (tap) => {
 
         stream.push({ id: i });
       }
+
+      stream.push(null);
     });
   });
 
@@ -216,6 +220,8 @@ describe('GoodTcp.', (tap) => {
       data._circle = data;
 
       stream.push(data);
+
+      stream.push(null);
     });
   });
 
@@ -314,6 +320,56 @@ describe('GoodTcp.', (tap) => {
 
         stream.push({ id: i });
       }
+
+      stream.push(null);
+    });
+  });
+
+
+  tap.test('Sends before buffer full if max wait time exceeded.', (t) => {
+
+    t.plan(2);
+
+    const stream = createReadStream();
+
+    let hitCount = 0;
+
+    const listener = (socket) => {
+
+      socket.on('data', (message) => {
+        hitCount++;
+
+        const events = message.toString('utf8').split('\r\n');
+        t.equals(events.length, 3);
+
+        const initialEvent = JSON.parse(events[0]);
+
+        switch (hitCount) {
+          case 1:
+            t.equals(initialEvent.id, 0);
+
+            server.close();
+
+            t.end();
+        }
+      });
+    };
+
+    const server = startTcpServer(54545, listener, () => {
+      const reporter = new GoodTcp('tcp://localhost:54545', {
+        threshold: 100,
+        maxDelay: 200
+      });
+
+      stream.pipe(reporter);
+
+      stream.push({ id: 0 });
+      stream.push({ id: 1 });
+
+      setTimeout(() => {
+        stream.push({ id: 2 });
+        stream.push(null);
+      }, 500);
     });
   });
 

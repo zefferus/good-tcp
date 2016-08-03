@@ -11,6 +11,7 @@ const Stringify = require('fast-safe-stringify');
 const internals = {
   defaults: {
     threshold: 20,
+    maxDelay: 0,
     tls: false,
     tlsOptions: {}
   }
@@ -34,7 +35,9 @@ class GoodTcp extends Stream.Writable {
 
     // Send last messages on your way out
     this.once('finish', () => {
-      this._sendMessages(() => {});
+      if (this._buffer.length) {
+        this._sendMessages(() => {});
+      }
     });
   }
 
@@ -43,15 +46,40 @@ class GoodTcp extends Stream.Writable {
 
     this._buffer.push(Stringify(data));
 
-    if (this._buffer.length >= this._settings.threshold) {
+    if (this._bufferReady) {
+
       this._sendMessages((err) => {
 
+        this._bufferStart = null;
         this._buffer = [];
         return cb(err);
       });
     } else {
+
+      if (!this._bufferStart) {
+        this._bufferStart = Date.now();
+      }
+
       setImmediate(cb);
     }
+  }
+
+
+  get _bufferReady() {
+
+    if (this._buffer.length >= this._settings.threshold) {
+      // Buffer is full
+      return true;
+    }
+
+    if (this._settings.maxDelay > 0 && this._bufferStart &&
+      Date.now() - this._bufferStart > this._settings.maxDelay) {
+
+      // Max wait time exceeded
+      return true;
+    }
+
+    return false;
   }
 
 

@@ -1,7 +1,7 @@
 {
   "name": "good-tcp",
   "description": "A TCP and TLS transport stream for Hapi's Good server and process monitor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "engines": {
     "node": ">=4.0.0"
   },
