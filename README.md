@@ -23,6 +23,8 @@ Creates a new `GoodTcp` object where:
 - `config` - Configuration object:
   - `[threshold]` - The number of events to hold before transmission. Defaults to `20`. Set to `0` to have every event start transmission immediately. It is recommended to set `threshold` as high as possible to make data transmission more efficient and reduce the number of TCP connections that must be initiated.
   - `[maxDelay]` - Maximum milliseconds to allow buffer to wait before forcing a stream write on next message. Defaults to `0`, turning off this feature. If you have a server that generates logs infrequently, turn on this feature to see logs arriving in batches, but more regularly.
+  - `[maxRetries]` - Maximum number of retries before shutting down this reporting. Defaults to `3`.
+  - `[retryInterval]` - Number of milliseconds between retrying to send the events. Defaults to `10000`.
   - `[tls]` - Whether to transmit via TLS. Defaults to `false`.
   - `[tlsOptions]` - Options to configure the TLS connection. Please see the [Node.js documentation for TLS](https://nodejs.org/api/tls.html#tls_tls_connect_options_callback) for the available options and their defaults.
 

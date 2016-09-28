@@ -12,6 +12,8 @@ const internals = {
   defaults: {
     threshold: 20,
     maxDelay: 0,
+    maxRetries: 3,
+    retryInterval: 10000,
     tls: false,
     tlsOptions: {}
   }
@@ -26,6 +28,8 @@ class GoodTcp extends Stream.Writable {
     config = config || {};
     this._settings = Hoek.applyToDefaults(internals.defaults, config);
     this._endpoint = Url.parse(endpoint);
+    this._remainingAttempts = this._settings.maxRetries;
+    this._connecting = false;
 
     if (!this._endpoint.hostname || !this._endpoint.port) {
       throw new Error('`endpoint` must be a valid URL string with hostname and port');
@@ -46,7 +50,7 @@ class GoodTcp extends Stream.Writable {
 
     this._buffer.push(Stringify(data));
 
-    if (this._bufferReady) {
+    if (this._bufferReady && !this._connecting) {
 
       this._sendMessages((err) => {
 
@@ -85,25 +89,42 @@ class GoodTcp extends Stream.Writable {
 
   _sendMessages(cb) {
 
+    if (this._remainingAttempts <= 0) {
+      return cb();
+    }
+
     this._openClient((client) => {
 
-      const message = this._buffer.join('\r\n');
-
-      client.write(message, 'utf8', () => {
-        client.end();
+      if (!client) {
         cb();
-      });
+      } else {
+        const message = this._buffer.join('\r\n');
+
+        client.write(message, 'utf8', () => {
+          client.end();
+          cb();
+        });
+      }
     });
   }
 
 
   _openClient(cb) {
 
+    const that = this;
+    that._connecting = true;
+
     let client;
 
     const connectListener = () => {
+      that._connecting = false;
       cb(client);
     };
+
+    if (that._remainingAttempts <= 0) {
+      that._connecting = false;
+      return cb();
+    }
 
     if (this._settings.tls) {
       client = Tls.connect(this._endpoint.port,
@@ -115,6 +136,19 @@ class GoodTcp extends Stream.Writable {
         this._endpoint.hostname,
         connectListener);
     }
+
+    client.on('error', (err) => {
+      that._remainingAttempts--;
+      console.warn(`Received error whilst connecting to TCP logger: ${err.message}. ${this._remainingAttempts} attempts remaining.`);
+      if (that._remainingAttempts > 0) {
+        setTimeout(() => {
+          that._openClient(cb);
+        }, that._settings.retryInterval);
+      } else {
+        that._connecting = false;
+        cb();
+      }
+    });
   }
 }
 

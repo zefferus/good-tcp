@@ -179,6 +179,60 @@ describe('GoodTcp.', (tap) => {
   });
 
 
+  tap.test('Handles connection errors safely.', (t) => {
+    t.plan(3);
+
+    const stream = createReadStream();
+
+    let hitCount = 0;
+
+    const listener = (socket) => {
+
+      socket.on('data', (message) => {
+        hitCount++;
+
+        const events = message.toString('utf8').split('\r\n');
+        t.equals(events.length, 1);
+
+        const initialEvent = JSON.parse(events[0]);
+
+        switch (hitCount) {
+          case 1:
+            t.equals(initialEvent.id, 0);
+            server.close();
+            break;
+
+          case 2:
+            t.equals(initialEvent.id, 1);
+        }
+      });
+    };
+
+    const warnStub = sandbox.stub(console, 'warn');
+
+    const server = startTcpServer(54545, listener, () => {
+      const reporter = new GoodTcp('tcp://localhost:54545', {
+        threshold: 0,
+        maxRetries: 2,
+        retryInterval: 50
+      });
+
+      stream.pipe(reporter);
+
+      for (let i = 0; i < 2; ++i) {
+
+        stream.push({ id: i });
+      }
+      stream.push(null);
+
+      setTimeout(() => {
+        t.equals(warnStub.callCount, 2);
+        t.end();
+      }, 1000);
+    });
+  });
+
+
   tap.test('Handles circular object references safely.', (t) => {
     t.plan(3);
 
